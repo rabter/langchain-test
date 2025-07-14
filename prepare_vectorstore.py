@@ -6,7 +6,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 import time
 from pathlib import Path
 
-file_path = Path("~/test/langchain-test/rag_sample.txt").expanduser()
+file_path = Path("rag_sample.txt").expanduser()
 
 # 문서 로드
 start = time.time()
