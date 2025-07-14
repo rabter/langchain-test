@@ -9,8 +9,6 @@ from pydantic import SecretStr
 from functools import lru_cache
 import time
 
-from rag_test import embedding
-
 
 # .env 파일 로드
 start = time.time()
