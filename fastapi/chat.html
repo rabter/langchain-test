@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>GenAI Chat</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      padding: 2rem;
+      max-width: 800px;
+      margin: auto;
+      background: #f9f9f9;
+    }
+    textarea {
+      width: 100%;
+      height: 100px;
+      font-size: 1rem;
+    }
+    button {
+      padding: 0.5rem 1rem;
+      margin-top: 0.5rem;
+      font-size: 1rem;
+    }
+    .chat-box {
+      margin-top: 2rem;
+      background: #fff;
+      border-radius: 10px;
+      padding: 1rem;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      height: 400px;
+      overflow-y: auto;
+      /* 고정 높이 및 스크롤 */
+    }
+    .user, .bot {
+      margin-bottom: 1.2rem;
+    }
+    .user strong {
+      color: #007acc;
+    }
+    .bot strong {
+      color: #00a65a;
+    }
+    .typing {
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+  </style></head>
+<body>
+  <h2>🧠 GenAI 챗봇</h2>
+  <textarea id="userInput" placeholder="질문을 입력하세요..."></textarea><br>
+  <button onclick="sendMessage()">보내기</button>
+
+  <div id="chat" class="chat-box"></div>
+
+  <!-- ✅ JavaScript는 HTML 마지막에 위치 -->
+  <script>
+    const chatBox = document.getElementById("chat");
+    const userInput = document.getElementById('userInput');
+
+    userInput.addEventListener('keydown', function(event) {
+    if (event.key === 'Enter') {
+        if (event.shiftKey) {
+        // Shift + Enter = 줄바꿈 허용 (기본 동작 유지)
+        return;
+        } else {
+        // Enter만 눌렀을 때는 폼 제출 또는 메시지 전송 실행
+        event.preventDefault();  // 기본 엔터 동작 막기 (줄바꿈 방지)
+        sendMessage();           // sendMessage()는 메시지 전송 함수 이름
+        }
+    }
+    });
+
+    async function sendMessage() {
+      const input = document.getElementById("userInput");
+      const query = input.value.trim();
+      if (!query) return;
+
+      appendMessage("user", query);
+      input.value = "";
+
+      try {
+        const res = await fetch("http://localhost:8000/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query }),
+        });
+
+        const data = await res.json();
+        const answer = data.response || data.error || "⚠️ 응답 오류";
+
+        await typeMessage("bot", answer);
+      } catch (err) {
+        appendMessage("bot", "⚠️ 서버와 통신 중 문제가 발생했습니다.");
+        console.error(err);
+      }
+    }
+
+    function appendMessage(role, text) {
+      const div = document.createElement("div");
+      div.className = role;
+      div.innerHTML = `<strong>${role === "user" ? "🙋 사용자" : "🤖 챗봇"}</strong><div class="typing">${text}</div>`;
+      chatBox.appendChild(div);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    async function typeMessage(role, text) {
+      const div = document.createElement("div");
+      div.className = role;
+
+      const label = `<strong>${role === "user" ? "🙋 사용자" : "🤖 챗봇"}</strong>`;
+      const typingDiv = document.createElement("div");
+      typingDiv.className = "typing";
+
+      div.innerHTML = label;
+      div.appendChild(typingDiv);
+      chatBox.appendChild(div);
+
+      chatBox.scrollTop = chatBox.scrollHeight; // 타이핑 시작 시 맨 아래로
+
+      for (let i = 0; i <= text.length; i++) {
+        typingDiv.textContent = text.slice(0, i);
+        chatBox.scrollTop = chatBox.scrollHeight; // 타이핑 중 스크롤 따라가기
+        await new Promise(r => setTimeout(r, 20));
+      }
+    }
+  </script>
+</body>
+</html>
