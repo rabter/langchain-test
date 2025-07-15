@@ -1,6 +1,5 @@
 import os
 from dotenv import load_dotenv
-from langchain_community.vectorstores import vectara
 from langchain_core.prompts import PromptTemplate
 from langchain_core.tools import retriever
 from langchain_openai import ChatOpenAI

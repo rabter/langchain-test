@@ -14,7 +14,8 @@ def timeit(func):
         return result
     return wrapper
 
-file_path = Path("rag_sample.txt").expanduser()
+# file_path = Path("rag_sample.txt").expanduser()
+file_path = Path("user_manual_clean.txt").expanduser()
 
 # 문서 로드
 start = time.time()
