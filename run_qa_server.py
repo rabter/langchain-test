@@ -13,6 +13,10 @@ import time
 import unicodedata
 import sys
 
+# RAG 판별 기준 상수: 이보다 크면 유사하지 않다고 간주
+MAX_DISTANCE_FOR_RAG = 1.1 # Chroma는 거리 기반이므로, 0에 가까울수록 유사, 너무 멀면 그냥 fallback(예외 방지용 최대값)
+SCORE_GAP_THRESHOLD = 0.25   # 문서 1~2위 거리 차이가 작으면 유사한 문서로 판단
+
 def normalize_text(text: str) -> str:
     """
     사용자 입력 쿼리에서 유니코드 정규화 및 깨진 문자 제거
@@ -50,7 +54,7 @@ embedding = get_embedding()
 
 # embedding = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 vectorstore = Chroma(persist_directory="rag_db", embedding_function=embedding)
-
+print(f"🔎 벡터 DB 내 문서 수: {vectorstore._collection.count()}개")
 
 
 # Groq API 기반 LLM
@@ -85,6 +89,10 @@ def hybrid_qa(query: str) -> str:
     # 유사도 + 문서 가져오기
     try:
         docs_with_score = vectorstore.similarity_search_with_score(query, k=3)
+        for i, (doc, score) in enumerate(docs_with_score, 1):
+            print(f"[#{i}] 거리 점수: {score:.4f}")
+            print(doc.page_content[:200])
+            print("-" * 40)        
     except Exception as e:
         print(f"문서 검색 중 오류: {e}")
         return answer_with_llm_only(llm, query)
@@ -94,16 +102,33 @@ def hybrid_qa(query: str) -> str:
         print("❌ 문서가 아예 검색되지 않음")
         return answer_with_llm_only(llm, query)
     
+    # 거리 점수 추출 및 로그
+    scores = [score for _, score in docs_with_score]
+
     # 가장 유사한 문서의 유사도 점수 확인
     top_doc, top_score = docs_with_score[0]
-    print(f"최고 유사도 점수: {top_score:.4f}")
 
-    if top_score < 0.5:
-        print(" 유사도가 낮아 일반 지식 기반 응답으로 전환")
+    print(f"\n 유사도 거리 점수:")
+    for i, score in enumerate(scores, 1):
+        print(f" - #{i} 문서 거리 점수: {score:.4f}")
+    print(f"➡ 최고 거리 점수: {top_score:.4f}")
+
+    score_gap = scores[1] - scores[0] if len(scores) > 1 else 1.0
+    is_relevant = (top_score < MAX_DISTANCE_FOR_RAG and score_gap < SCORE_GAP_THRESHOLD)
+
+    print(f"📐 거리 기준 판단 → top_score < {MAX_DISTANCE_FOR_RAG} = {top_score < MAX_DISTANCE_FOR_RAG}")
+    print(f"📐 거리 차 판단 → gap < {SCORE_GAP_THRESHOLD} = {score_gap < SCORE_GAP_THRESHOLD}")
+    print(f"📌 최종 유사 여부 판단 결과: {is_relevant}")
+
+    # 응답 분기
+    if is_relevant:
+        print("✅ 관련 문서가 충분히 유사하여 RAG 기반 응답 수행")
+        return qa_chain.invoke({"query": query})["result"]
+    else:
+        print("🌐 관련 문서의 유사도가 낮아 일반 지식 기반 응답으로 fallback")
         return answer_with_llm_only(llm, query)
 
-    print("관련 문서가 충분히 유사하여 RAG 기반으로 응답합니다.")
-    return qa_chain.invoke({"query": query})["result"]
+
 
 # ✅ 사용자 입력 받아서 실행
 
