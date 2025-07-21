@@ -45,12 +45,31 @@ llm = ChatOpenAI(
         base_url=os.getenv("OPENAI_API_BASE")
 )
 
+custom_prompt = PromptTemplate.from_template(
+    """
+    다음은 참고할 수 있는 문서 정보입니다:
+
+    {context}
+
+    위 문서를 기반으로 아래 질문에 대해 반드시 **한국어로만** 정답을 제시하세요.
+    문서에 언급되지 않은 내용은 절대 추측하지 마시고, 가능한 한 문서 내용을 충실히 반영해 주세요.
+
+    질문: {question}
+
+    답변:
+    """
+)
 
 # RAG 체인 생성
 # 유사도 기반 검색을 수행하면서 임계값 조건도 추가하는 방식(similarity_score_threshold)
 retriever = vectorstore.as_retriever(search_kwargs={"k": 5}) # 기본 4~5 추천
 
-qa_chain = RetrievalQA.from_chain_type(llm, retriever=retriever)
+qa_chain = RetrievalQA.from_chain_type(
+    llm=llm, 
+    retriever=retriever,
+    chain_type_kwargs={"prompt": custom_prompt},
+    return_source_documents=True # 사용된 문서도 함께 반환받기
+)
 
 # ✅ 일반 지식 응답 생성 함수
 def answer_with_llm_only(llm, question: str) -> str:
