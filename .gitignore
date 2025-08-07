@@ -177,7 +177,6 @@ pyrightconfig.json
 
 # Langchain 
 rag_db/
-*.txt
 
 # Word file
 *.docx
